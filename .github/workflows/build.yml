@@ -18,30 +18,28 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Set up dependencies
+      - name: Install dependencies and cross-compilers
         run: |
           sudo apt-get update
-          sudo apt-get install -y build-essential cmake make libpulse-dev \
+          sudo apt-get install -y make libpulse-dev \
             gcc-aarch64-linux-gnu g++-aarch64-linux-gnu \
-            gcc-arm-linux-gnueabihf g++-arm-linux-gnueabihf
+            gcc-arm-linux-gnueabihf g++-arm-linux-gnueabihf \
+            build-essential
 
-      - name: Configure build with CMake
+      - name: Set target compiler
         run: |
-          mkdir -p build
-          cd build
           case "${{ matrix.target_arch }}" in
             aarch64)
-              cmake .. -DCMAKE_SYSTEM_NAME=Linux -DCMAKE_SYSTEM_PROCESSOR=aarch64 \
-                -DCMAKE_C_COMPILER=aarch64-linux-gnu-gcc \
-                -DCMAKE_CXX_COMPILER=aarch64-linux-gnu-g++
+              echo "CC=aarch64-linux-gnu-gcc" >> $GITHUB_ENV
+              echo "CXX=aarch64-linux-gnu-g++" >> $GITHUB_ENV
               ;;
             armv7)
-              cmake .. -DCMAKE_SYSTEM_NAME=Linux -DCMAKE_SYSTEM_PROCESSOR=armv7 \
-                -DCMAKE_C_COMPILER=arm-linux-gnueabihf-gcc \
-                -DCMAKE_CXX_COMPILER=arm-linux-gnueabihf-g++
+              echo "CC=arm-linux-gnueabihf-gcc" >> $GITHUB_ENV
+              echo "CXX=arm-linux-gnueabihf-g++" >> $GITHUB_ENV
               ;;
             x86_64)
-              cmake ..
+              echo "CC=gcc" >> $GITHUB_ENV
+              echo "CXX=g++" >> $GITHUB_ENV
               ;;
           esac
 
