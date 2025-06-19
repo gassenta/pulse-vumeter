@@ -24,14 +24,15 @@
 #include <math.h>
 #include <pthread.h>
 
+#define MAX_CHANNELS 48
 
 static pa_context *context = NULL;
 static pa_stream *stream = NULL;
 static char *device_name = NULL;
 unsigned int last = 0;
 unsigned int dev_type = 0;
-float levels[2] = {-1.0, -1.0};
-float dbRMS = 0;
+float levels[MAX_CHANNELS] = {0};
+int num_channels = 2; // updated later dynamically
 int __main_loop = 0;
 
 void show_error(const char *txt) {
@@ -40,42 +41,38 @@ void show_error(const char *txt) {
 
 static void stream_read_callback(pa_stream *s, size_t length, void *dummy) {
     (void) dummy;
-    const void *p;
-    float *data = NULL;
+    const float *data;
+    unsigned int samples;
 
-	unsigned int samples = 0;
-
-
-    if (pa_stream_peek(s, &p, &length) < 0) {
-		fprintf(stderr, "pa_stream_peek() failed: %s", pa_strerror(pa_context_errno(context)));
+    if (pa_stream_peek(s, (const void**)&data, &length) < 0) {
+        fprintf(stderr, "pa_stream_peek() failed: %s\n", pa_strerror(pa_context_errno(context)));
         return;
     }
 
-	samples = (length / sizeof(float));
-    data = (float *) p;
+    samples = length / sizeof(float);
+    if (samples == 0 || !data) {
+        pa_stream_drop(s);
+        return;
+    }
 
-	float v = 0;
+    unsigned int frames = samples / num_channels;
+    float sum[MAX_CHANNELS] = {0};
 
-	for(unsigned int i = 1; i < samples; i++){
-		/*v += data[i] * data[i];*/
-		v += fabs(data[i]); // * data[i];
-	}
-	v = v / samples;
-	v = sqrt(v);
+    for (unsigned int i = 0; i < frames; ++i) {
+        for (int ch = 0; ch < num_channels; ++ch) {
+            float sample = data[i * num_channels + ch];
+            sum[ch] += fabs(sample);  // you could also use sample*sample for RMS
+        }
+    }
 
-	/*v = ((const float*) data)[length / sizeof(float) -1];*/
+    for (int ch = 0; ch < num_channels; ++ch) {
+        float v = sum[ch] / frames;
+        v = sqrt(v);
+        if (v > 1.0f) v = 1.0f;
+        levels[ch] = v;
+    }
 
-	if (dbRMS <= v)
-		dbRMS = (0.1 * dbRMS + 0.9 * v);
-		/*dbRMS = v;*/
-	/*else dbRMS -= .025;*/
-
-	if (dbRMS > 1)
-		dbRMS = 1;
-	else if (dbRMS < 0)
-		dbRMS = 0;
-
-	pa_stream_drop(s);
+    pa_stream_drop(s);
 }
 
 static void stream_state_callback(pa_stream *s, void *dummy) {
@@ -103,6 +100,8 @@ static void create_stream(const char *name, const pa_sample_spec *ss, const pa_c
     nss.format = PA_SAMPLE_FLOAT32;
     nss.rate = ss->rate;
     nss.channels = ss->channels;
+    num_channels = nss.channels;
+    if (num_channels > MAX_CHANNELS) num_channels = MAX_CHANNELS;
 
     stream = pa_stream_new(context, "Console Audio Meter", &nss, cmap);
     pa_stream_set_state_callback(stream, stream_state_callback, NULL);
@@ -167,14 +166,17 @@ static void context_state_callback(pa_context *c, void *dummy) {
     }
 }
 
-void *print_dbrms_thread( ){
-	while (1){
-		usleep(33000);
-		fflush(stdout);
-		printf("%.2f\n", dbRMS);
-		if (dbRMS - 0.04 >= 0)
-			dbRMS -= 0.04;
-	}
+void *print_dbrms_thread() {
+    while (1) {
+        usleep(33000);
+        fflush(stdout);
+
+        for (int ch = 0; ch < num_channels; ++ch) {
+            printf("%.2f\t", levels[ch]);
+        }
+
+        printf("\n");
+    }
 }
 
 int main(int argc, char* argv[]) {
