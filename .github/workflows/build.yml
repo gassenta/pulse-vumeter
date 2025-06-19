@@ -2,8 +2,8 @@ name: Build CMake Project
 
 on:
   push:
-    branches: [main]
-  pull_request:
+    tags:
+      - 'v*'
     branches: [main]
 
 jobs:
@@ -12,7 +12,7 @@ jobs:
 
     strategy:
       matrix:
-        target_arch: [aarch64, armv7, x86_64]
+        target_arch: [x86_64]
     
     steps:
       - name: Checkout code
@@ -51,3 +51,22 @@ jobs:
         with:
           name: pulse-vumeter-${{ matrix.target_arch }}
           path: pulse-vumeter
+  
+  release:
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Download artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: pulse-vumeter-x86_64
+          path: dist
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/pulse-vumeter-x86_64
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
