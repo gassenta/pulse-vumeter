@@ -61,7 +61,7 @@ jobs:
       - name: Download artifact
         uses: actions/download-artifact@v4
         with:
-          name: pulse-vumeter-x86_64
+          name: pulse-vumeter
           path: dist
 
       - name: Create GitHub Release
