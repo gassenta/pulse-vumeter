@@ -29,5 +29,5 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: build-${{ matrix.target_arch }}
+          name: pulse-vumeter-${{ matrix.target_arch }}
           path: pulse-vumeter
