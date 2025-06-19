@@ -21,28 +21,8 @@ jobs:
       - name: Install dependencies and cross-compilers
         run: |
           sudo apt-get update
-          sudo apt-get install -y make libpulse-dev \
-            gcc-aarch64-linux-gnu g++-aarch64-linux-gnu \
-            gcc-arm-linux-gnueabihf g++-arm-linux-gnueabihf \
-            build-essential
-
-      - name: Set target compiler
-        run: |
-          case "${{ matrix.target_arch }}" in
-            aarch64)
-              echo "CC=aarch64-linux-gnu-gcc" >> $GITHUB_ENV
-              echo "CXX=aarch64-linux-gnu-g++" >> $GITHUB_ENV
-              ;;
-            armv7)
-              echo "CC=arm-linux-gnueabihf-gcc" >> $GITHUB_ENV
-              echo "CXX=arm-linux-gnueabihf-g++" >> $GITHUB_ENV
-              ;;
-            x86_64)
-              echo "CC=gcc" >> $GITHUB_ENV
-              echo "CXX=g++" >> $GITHUB_ENV
-              ;;
-          esac
-
+          sudo apt-get install -y make libpulse-dev build-essential
+          
       - name: Build
         run: make
 
@@ -61,12 +41,12 @@ jobs:
       - name: Download artifact
         uses: actions/download-artifact@v4
         with:
-          name: pulse-vumeter
+          name: pulse-vumeter-x86_64
           path: dist
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          files: dist/pulse-vumeter-x86_64
+          files: dist/pulse-vumeter
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
